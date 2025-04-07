@@ -1,0 +1,235 @@
+---
+title: "1R_biomarker"
+output: html_notebook
+---
+
+10/04/2024
+
+Plotting biomarker heatmap
+
+```{r}
+library(tidyverse)
+library(pheatmap)
+library(viridis)
+library(scales)
+
+save_pheatmap_pdf <- function(x, filename, width=7, height=7) {
+   stopifnot(!missing(x))
+   stopifnot(!missing(filename))
+   pdf(filename,width = width, height=height)
+   grid::grid.newpage()
+   grid::grid.draw(x$gtable)
+   dev.off()
+}
+
+```
+
+# Biomarker by phase
+
+```{r}
+biomarker_phase_df =read.csv('gene_study_info_df.csv',row.names=1,header=TRUE)%>%
+    select(I,II,III,IV)
+biomarker_phase_df_highfreq = biomarker_phase_df %>% 
+    filter(rowSums(.)>30)
+dim(biomarker_phase_df_highfreq)
+biomarker_highfreq_arr = rownames(biomarker_phase_df_highfreq)
+p= pheatmap(t(log10(biomarker_phase_df+1)),  cluster_rows=F, color = inferno(10),
+)
+save_pheatmap_pdf(p,'phase_to_gene_to_numstudy_df.pdf',width=80,height=3)
+
+p= pheatmap(t(log10(biomarker_phase_df_highfreq+1)), cluster_rows=F, color = inferno(10), main='# Studies with High-Frequency Biomarkers in Eligibility Criteria by Phase')
+save_pheatmap_pdf(p,'phase_to_gene_to_numstudy_df_highfreq.pdf',width=15,height=3.5)
+```
+
+# Biomarker by Disease Group
+
+```{r}
+biomarker_df = read.csv('dz_to_gene_to_numstudy_df.csv',row.names=1,header=TRUE)%>%
+  head(-3)# remove covid, misc_cancer,unspecified
+
+biomarker_df_highfreq = biomarker_df %>%   select_if(~sum(.) > 10)
+biomarker_df_highfreq = biomarker_df_highfreq[,(colnames(biomarker_df_highfreq) %in% biomarker_highfreq_arr)]
+    
+```
+
+
+```{r}
+p= pheatmap(log10(biomarker_df+1),  color = inferno(10),
+)
+save_pheatmap_pdf(p,'tissue_to_gene_to_numstudy_df.pdf',width=75,height=7)
+
+p= pheatmap(log10(biomarker_df_highfreq+1),color = inferno(10),
+            main='# Studies with High-Frequency Biomarkers in Eligibility Criteria by Disease Subtype')
+save_pheatmap_pdf(p,'tissue_to_gene_to_numstudy_df_highfreq.pdf',width=11,height=6)
+
+
+```
+
+
+
+
+
+
+```{r}
+group_counts_df = read.csv('disease_phase_df.csv',row.names = 1,header=TRUE)%>%
+  head(-3)
+group_counts_df$cancer_types = rownames(group_counts_df)
+ggplot(group_counts_df, aes(x=reorder(cancer_types, total_num_trials), y=total_num_trials) )+ geom_bar(stat = "identity")+coord_flip()+
+  theme_minimal()+ylab('# Interventional Clinical Trials')+
+  xlab('Cancer Groups') + ggtitle('# Trials per Cancer Type')
+ggsave('tissue_counts_bar.pdf',height = 5,width = 5)
+```
+```{r}
+group_counts_df_long = pivot_longer(phase_counts_df, !cancer_types)%>%
+    filter(name!='tot_num_studies')%>%
+    select(-cancer_types)
+group_counts_df_long = group_counts_df_long%>%
+    add_row(name='other',value=19966-sum(group_counts_df_long$value))
+group_counts_df_long
+blank_theme <- theme_minimal()+
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.border = element_blank(),
+  panel.grid=element_blank(),
+  axis.ticks = element_blank()#,
+  # plot.title=element_text(size=14, face="bold")
+  )
+
+ggplot(group_counts_df_long, aes(x="", y= value, fill=name)) +
+  geom_bar(stat="identity", width=1, color="white") + 
+    coord_polar("y", start=0)+
+
+  labs(title="# Trials by Phase") +
+  scale_fill_brewer("Blues") + blank_theme+
+    theme(legend.title=element_blank())
+#+ 
+  # theme(legend.position="none") +
+  # geom_text(aes(y = value, label = name), color = "white", size=6) +
+  # scale_fill_brewer(palette="Set1")
+  # theme_minimal()+ylab('# Interventional Clinical Trials')+
+  # xlab('Clinical Trial Phase') +
+  # scale_x_discrete(labels=c("phase1" = "Phase 1", "phase2" = "Phase 2",
+  #                           "phase3" = "Phase 3", "phase4" = "Phase 4",
+  #                           "other" = 'unlabelled')) +
+ggsave('phase_counts_pie.pdf')
+```
+
+
+```{r}
+# get 
+biomarkers_tissue_freq = read.csv('biomarkers_tissue_frequency.csv',row.names = 1, header=TRUE)
+biomarkers_tissue_freq$num_tissues = as.integer(rownames(biomarkers_tissue_freq))
+biomarkers_tissue_freq
+ggplot(biomarkers_tissue_freq, aes(x=num_tissues,y=num_biomarkers))+
+  geom_bar(stat='identity')+
+  theme_minimal()+
+  ggtitle('Histogram of Tissue-Specificify for Biomarkers')+
+  xlab('# of Cancer Groups')+
+  ylab('# of Biomarkers included in Trial Eligibility Criterion')
+ggsave('biomarkers_tissue_freq.pdf')
+```
+
+
+
+```{r}
+# Trial Stoppage pie chart
+phase_to_reason_df = read.csv('phase_to_reason_df.csv',header=TRUE)%>%
+    arrange(desc(total))%>%
+    mutate(reason=factor(X, levels=X)) %>%
+    mutate(perc = label_percent(accuracy=0.1)(total/sum(total)))%>%
+    mutate( label = paste0(reason, " (",  total, ' - ' , perc, ")"))%>%
+    mutate(label=factor(label, levels=label))
+phase_to_reason_df
+
+reason_order = phase_to_reason_df$reason
+
+ggplot(phase_to_reason_df, aes(1, total, fill=label)) +
+  geom_col(position = "stack", color = "gray20", alpha = 0.8) + 
+  scale_fill_brewer(palette="Set1", name = 'Reason') +
+  coord_polar(theta = "y", clip = "off") +
+  labs(title="Trial Stoppage Reasons") +
+   blank_theme+
+    theme(legend.title=element_blank())
+ggsave('trial_stoppage_pie_all.pdf')
+```
+
+
+```{r}
+
+phase_to_reason_df_long = read.csv('phase_to_reason_df_long.csv',row.names=1, header=TRUE)
+
+ggplot(phase_to_reason_df_long, aes(x=reason, y=norm, fill=phase))+
+  geom_bar(stat='identity',position='dodge',color='black')+ scale_fill_brewer(palette='Blues')+xlab('reason for trial discontinuation')+
+  ylab('Normalized # of trials')+
+  ggtitle('Distribution of Reasons for Clinical Trial Stoppage by Phase')+
+  theme_minimal()
+
+ggsave('phase_to_reason_all.pdf')
+```
+
+
+
+```{r}
+# Trial Stoppage pie chart -- biomarke
+phase_to_reason_df_biomarker = read.csv('phase_to_reason_df_biomarker.csv',header=TRUE)%>%
+    mutate(reason=factor(X, levels=reason_order)) %>%
+    arrange(reason)%>%
+    mutate(perc = label_percent(accuracy=0.1)(total/sum(total)))%>%
+    mutate( label = paste0(reason, " (",  total, ' - ' , perc, ")"))%>%
+    mutate(label=factor(label, levels=label))
+
+phase_to_reason_df_biomarker
+
+ggplot(phase_to_reason_df_biomarker, aes(1, total, fill=label)) +
+  geom_col(position = "stack", color = "gray20", alpha = 0.8) + 
+  scale_fill_brewer(palette="Set1", name = 'Reason') +
+  coord_polar(theta = "y", clip = "off") +
+  labs(title="Trial Stoppage Reasons - Biomarker Trials") +
+   blank_theme+
+    theme(legend.title=element_blank())
+ggsave('trial_stoppage_pie_biomarker.pdf')
+
+phase_to_reason_df_biomarker_long = read.csv('phase_to_reason_df_biomarker_long.csv',row.names=1, header=TRUE)
+
+ggplot(phase_to_reason_df_biomarker_long, aes(x=reason, y=norm, fill=phase))+
+  geom_bar(stat='identity',position='dodge',color='black')+ scale_fill_brewer(palette='Blues')+xlab('reason for trial discontinuation')+
+  ylab('Normalized # of trials')+
+  ggtitle('Distribution of Reasons for Clinical Trial Stoppage by Phase')+
+  theme_minimal()
+
+ggsave('phase_to_reason_biomarker.pdf')
+```
+
+
+```{r}
+# Trial Stoppage pie chart -- nonbiomarker
+phase_to_reason_df_nonbiomarker = read.csv('phase_to_reason_df_nonbiomarker.csv',header=TRUE)%>%
+    mutate(reason=factor(X, levels=reason_order)) %>%
+    arrange(reason)%>%
+    mutate(perc = label_percent(accuracy=0.1)(total/sum(total)))%>%
+    mutate( label = paste0(reason, " (",  total, ' - ' , perc, ")"))%>%
+    mutate(label=factor(label, levels=label))
+
+phase_to_reason_df_nonbiomarker
+
+ggplot(phase_to_reason_df_nonbiomarker, aes(1, total, fill=label)) +
+  geom_col(position = "stack", color = "gray20", alpha = 0.8) + 
+  scale_fill_brewer(palette="Set1", name = 'Reason') +
+  coord_polar(theta = "y", clip = "off") +
+  labs(title="Trial Stoppage Reasons - Nonbiomarker trials") +
+   blank_theme+
+    theme(legend.title=element_blank())
+ggsave('trial_stoppage_pie_nonbiomarker.pdf')
+
+phase_to_reason_df_nonbiomarker_long = read.csv('phase_to_reason_df_nonbiomarker_long.csv',row.names=1, header=TRUE)
+
+ggplot(phase_to_reason_df_nonbiomarker_long, aes(x=reason, y=norm, fill=phase))+
+  geom_bar(stat='identity',position='dodge',color='black')+ scale_fill_brewer(palette='Blues')+xlab('reason for trial discontinuation')+
+  ylab('Normalized # of trials')+
+  ggtitle('Distribution of Reasons for Clinical Trial Stoppage by Phase - nonbiomarker trials only')+
+  theme_minimal()
+
+ggsave('phase_to_reason_nonbiomarker.pdf')
+```
+

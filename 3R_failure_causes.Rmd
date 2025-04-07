@@ -1,0 +1,333 @@
+---
+title: "3R_failure_causes"
+output: html_notebook
+---
+ClusterProfiler
+
+```{r}
+library(tidyverse)
+library(readr)
+library(ggplot2)
+
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# BiocManager::install('clusterProfiler')
+# BiocManager::install('org.Hs.eg.db')
+# BiocManager::install('ReactomePA')
+# BiocManager::install('annotate')
+# BiocManager::install('seqinr')
+
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(pheatmap)
+library(ReactomePA)
+library(annotate)
+library(seqinr)
+
+# setwd("~/Documents/clinical_trial_llm/trial_processing_code")
+```
+
+
+```{r}
+save_dir= '~/Documents/clinical_trial_llm/trial_processing_code/goterm_failure/'
+
+```
+
+
+```{r}
+#for efficacy
+save_prefix = paste0(save_dir,'phasecomp_')
+
+phase_1_genes = c('ARID1A', 'CCNE1', 'EML4', 'EZH2', 'GUCY2C', 'KDM6A', 
+  'KMT2C', 'KMT2D', 'PDE3A', 'SF3B1', 'SLFN12', 'SMARCA2', 'SMARCA4', 'SRSF2')
+phase_later_genes = c('AR', 'ARAF', 'ATF1', 'BAIAP2L1', 'BICC1', 'BRCA1',
+ 'BRCA2', 'CASP7', 'CDKN2A', 'CTAG2', 'ERBB3', 'EWSR1', 'FGFR1', 'FGFR2',
+ 'FGFR3', 'FLT3', 'KEAP1', 'MS4A1', 'NFE2L2', 'NTRK1', 'NTRK2', 'NTRK3',
+ 'PIK3CA', 'POLD1', 'POLE', 'RAF1', 'ROS1', 'TACC3', 'TNFRSF8')
+
+all_phase_genes = c('ALK', 'BRAF', 'CD274', 'CTAG1A', 'CTAG1B', 'EGFR', 'ERBB2',
+'ESR1', 'HLA-A', 'HRAS', 'KLK3', 'KRAS', 'NRAS', 'PGR', 'SMARCB1', 'TP53')
+
+biomarker_phase_df =read.csv('gene_study_info_df.csv',row.names=1,header=TRUE)%>%
+    dplyr::select(I,II,III,IV)
+all_biomarker_genes = colnames(biomarker_phase_df)
+
+length(phase_1_genes)
+length(phase_later_genes)
+length(all_phase_genes)
+length(biomarker_phase_df)
+# # if you want to include common genes
+# phase_1_genes = c('ALK', 'ARID1A', 'BRAF', 'CCNE1', 'CD274', 'CTAG1A', 'CTAG1B', 'EGFR', 'EML4', 'ERBB2', 'ESR1', 'EZH2', 'GUCY2C', 'HLA-A',
+#  'HRAS', 'KDM6A', 'KLK3', 'KMT2C', 'KMT2D', 'KRAS', 'NRAS', 'PDE3A',
+#  'PGR', 'SF3B1', 'SLFN12', 'SMARCA2', 'SMARCA4', 'SMARCB1', 'SRSF2',
+#  'TP53')
+# phase_later_genes = c('ALK', 'AR', 'ARAF', 'ATF1', 'BAIAP2L1', 'BICC1',
+#   'BRAF', 'BRCA1', 'BRCA2', 'CASP7', 'CD274', 'CDKN2A', 'CTAG1A', 'CTAG1B',
+#  'CTAG2', 'EGFR', 'ERBB2', 'ERBB3', 'ESR1', 'EWSR1', 'FGFR1', 'FGFR2', 'FGFR3',
+#  'FLT3', 'HLA-A', 'HRAS', 'KEAP1', 'KLK3', 'KRAS', 'MS4A1', 'NFE2L2', 
+#  'NRAS', 'NTRK1', 'NTRK2', 'NTRK3', 'PGR', 'PIK3CA', 'POLD1', 'POLE',
+#  'RAF1', 'ROS1', 'SMARCB1', 'TACC3', 'TNFRSF8', 'TP53')
+
+
+```
+
+```{r}
+#for accrual
+save_prefix = paste0(save_dir,'accrual_phasecomp_')
+
+phase_1_genes = c('BTK',
+ 'CCNE1',
+ 'CD33',
+ 'CD38',
+ 'CTAG1A',
+ 'CTAG1B',
+ 'CTAG2',
+ 'EPCAM',
+ 'ETV6',
+ 'FGFR2',
+ 'FGFR3',
+ 'IL2RA',
+ 'IRAK1',
+ 'MSH3',
+ 'POLD1',
+ 'POLE',
+ 'PTPRC',
+ 'ROR1',
+ 'TYK2',
+ 'UGT1A1')
+phase_later_genes = c('ABL1',
+ 'AKAP4',
+ 'AR',
+ 'ARAF',
+ 'ARID1A',
+ 'ATM',
+ 'BARD1',
+ 'BCR',
+ 'BRIP1',
+ 'CBFB',
+ 'CBL',
+ 'CCND1',
+ 'CD22',
+ 'CD274',
+ 'CDK12',
+ 'CEACAM5',
+ 'CGA',
+ 'CGB3',
+ 'CHEK2',
+ 'COL7A1',
+ 'CREBBP',
+ 'CSF3R',
+ 'CTLA4',
+ 'DDR2',
+ 'EP300',
+ 'EWSR1',
+ 'EZH2',
+ 'FANCA',
+ 'FBXW7',
+ 'FGFR1',
+ 'FH',
+ 'FLCN',
+ 'FUS',
+ 'GATA1',
+ 'GATA2',
+ 'GEN1',
+ 'H3-3A',
+ 'H3-3B',
+ 'IDH1',
+ 'IDH2',
+ 'KMT2A',
+ 'MAGEA1',
+ 'MAGEA4',
+ 'MAP2K1',
+ 'MAP2K2',
+ 'MAPK1',
+ 'MAPK3',
+ 'MGMT',
+ 'MLANA',
+ 'MPL',
+ 'MYCN',
+ 'NBN',
+ 'NF1',
+ 'NOTCH1',
+ 'NOTCH2',
+ 'NOTCH3',
+ 'NOTCH4',
+ 'NPM1',
+ 'PALB2',
+ 'PDCD1',
+ 'PDGFA',
+ 'PDGFB',
+ 'PDGFRA',
+ 'PDGFRB',
+ 'PHF6',
+ 'PIK3CA',
+ 'PTPN11',
+ 'PTTG1',
+ 'RAD51B',
+ 'RAD51C',
+ 'RAD51D',
+ 'RAD54L',
+ 'RAF1',
+ 'RB1',
+ 'RET',
+ 'ROPN1',
+ 'RUNX2',
+ 'RUNX3',
+ 'SDHA',
+ 'SDHAF2',
+ 'SDHB',
+ 'SDHC',
+ 'SDHD',
+ 'SF3B1',
+ 'SLC45A2',
+ 'SPA17',
+ 'SPANXB1',
+ 'SRSF2',
+ 'STAG2',
+ 'STAT3',
+ 'TAF15',
+ 'TG',
+ 'TNFRSF8',
+ 'U2AF1',
+ 'WT1',
+ 'ZRSR2')
+
+all_phase_genes = c('ALK',
+ 'BCL2',
+ 'BCL6',
+ 'BRAF',
+ 'BRCA1',
+ 'BRCA2',
+ 'CD19',
+ 'CDKN2A',
+ 'EGFR',
+ 'ERBB2',
+ 'ESR1',
+ 'FLT3',
+ 'HLA-A',
+ 'HRAS',
+ 'JAK1',
+ 'JAK2',
+ 'JAK3',
+ 'KIT',
+ 'KLK3',
+ 'KRAS',
+ 'MET',
+ 'MLH1',
+ 'MS4A1',
+ 'MSH2',
+ 'MSH6',
+ 'MSLN',
+ 'MYC',
+ 'MYD88',
+ 'NRAS',
+ 'PGR',
+ 'PMS2',
+ 'PTEN',
+ 'ROS1',
+ 'RUNX1',
+ 'TP53')
+
+biomarker_phase_df =read.csv('gene_study_info_df.csv',row.names=1,header=TRUE)%>%
+    dplyr::select(I,II,III,IV)
+all_biomarker_genes = colnames(biomarker_phase_df)
+
+length(phase_1_genes)
+length(phase_later_genes)
+length(all_phase_genes)
+length(biomarker_phase_df)
+
+
+```
+
+
+```{r}
+#mapping
+phase1_mapping = bitr(phase_1_genes, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
+phaselater_mapping = bitr(phase_later_genes, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
+all_phase_genes_mapping = bitr(all_phase_genes, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
+mapping  = bitr(all_biomarker_genes, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
+  
+  #bind_rows(phase1_mapping, phaselater_mapping, all_phase_genes_mapping)
+dim(mapping)
+mapping = distinct(mapping)
+dim(mapping)
+
+entrez_phase1 = phase1_mapping$ENTREZID
+entrez_phaselater = phaselater_mapping$ENTREZID
+entrez_phaseall = all_phase_genes_mapping$ENTREZID
+entrez_background = mapping$ENTREZID
+length(entrez_phase1)
+length(entrez_phaselater)
+length(entrez_phaseall)
+length(entrez_background)
+
+```
+
+
+
+```{r}
+#Comparison
+
+cluster_all <- list(phase_1 = entrez_phase1, 
+                       phase_later = entrez_phaselater,
+                      all_phase = entrez_phaseall)
+
+
+ck_reactome <- compareCluster(geneCluster = cluster_all, fun = "enrichPathway", pAdjustMethod='BH', pvalueCutoff = 0.05,readable=TRUE)
+head(as.data.frame(ck_reactome))
+write.csv(ck_reactome, file=paste0(save_prefix, 'ck_reactome.csv'))
+
+
+
+```
+
+```{r}
+g = dotplot(ck_reactome)
+# g = g+ coord_flip()+theme(axis.text.x = element_text(angle = 90, hjust=1))
+
+ggsave(paste0(save_prefix,"ck_reactome_dot.jpg"), width=7, height=9, units='in')
+
+```
+
+
+```{r}
+ck_go_bp <- compareCluster(geneCluster = cluster_all, fun = "enrichGO", 
+                                pAdjustMethod='BH', 
+                                pvalueCutoff  = 0.05,
+                                qvalueCutoff  = 0.2,
+                                OrgDb='org.Hs.eg.db', 
+                                ont = "BP",
+                                readable=TRUE)
+head(as.data.frame(ck_go_bp))
+write.csv(ck_go_bp, file=paste0(save_prefix, 'ck_go_bp.csv'))
+dotplot(ck_go_bp)
+ggsave(paste0(save_prefix, 'ck_go_bp_dot.jpg'),width = 7, height = 10, units = c("in"))
+
+
+ck_go_mf <- compareCluster(geneCluster = cluster_all, fun = "enrichGO", 
+                                pAdjustMethod='BH', 
+                                pvalueCutoff  = 0.05,
+                                qvalueCutoff  = 0.2,
+                                OrgDb='org.Hs.eg.db', 
+                                ont = "MF",
+                                readable=TRUE)                              
+head(as.data.frame(ck_go_mf))
+write.csv(ck_go_mf, file=paste0(save_prefix, 'ck_go_mf.csv'))
+dotplot(ck_go_mf)
+ggsave(paste0(save_prefix, 'ck_go_mf_dot.jpg'),width = 7, height = 9, units = c("in"))
+
+ck_go_cc <- compareCluster(geneCluster = cluster_all, fun = "enrichGO", 
+                                pAdjustMethod='BH', 
+                                pvalueCutoff  = 0.05,
+                                qvalueCutoff  = 0.2,
+                                OrgDb='org.Hs.eg.db', 
+                                ont = "CC",
+                                readable=TRUE)
+head(as.data.frame(ck_go_cc))
+write.csv(ck_go_cc, file=paste0(save_prefix, 'ck_go_cc.csv'))
+dotplot(ck_go_cc)
+ggsave(paste0(save_prefix, 'ck_go_cc_dot.jpg'),width = 7, height = 7, units = c("in"))
+
+```
+
